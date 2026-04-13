@@ -1,0 +1,10 @@
+[project]
+name = "btb"
+version = "1.0.0"
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic>=2.0",
+    "tomli-w",
+    "pyyaml",
+    "huggingface-hub",
+]

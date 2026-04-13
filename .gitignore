@@ -1,0 +1,26 @@
+# Environment / secrets
+.env
+.env.*
+
+# IDE
+.idea/
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+.venv/
+
+# Downloaded data (fetched from HuggingFace by adapter)
+btb-data/
+
+# Generated task directories (regenerate via adapter)
+datasets/
+
+# Harbor job runs and shared tool data
+jobs/
+shared/
+
+# Verifier-only runs
+verifier-eval/results/
