@@ -16,9 +16,8 @@ import sys
 from pathlib import Path
 
 from .config import (
-    DEFAULT_JSON_PATH,
+    DEFAULT_DATA_DIR,
     DEFAULT_SHARED_DIR,
-    DEFAULT_TASK_DATA_DIR,
     REPO_ROOT,
     REQUIRED_TOOLS,
     resolve_repo_path,
@@ -26,10 +25,14 @@ from .config import (
 
 log = logging.getLogger("btb.prereq")
 
+_UUID_RE = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+    re.IGNORECASE,
+)
+
 # Paths (resolved against repo root)
 SHARED_DIR = resolve_repo_path(DEFAULT_SHARED_DIR)
-JSON_PATH = resolve_repo_path(DEFAULT_JSON_PATH)
-DATA_DIR = resolve_repo_path(DEFAULT_TASK_DATA_DIR)
+_DEFAULT_DATA_DIR = resolve_repo_path(DEFAULT_DATA_DIR)
 TEMPLATE_TEST_SH = REPO_ROOT / "adapters" / "btb" / "template" / "tests" / "test.sh"
 SMOKE_TEST_SH = REPO_ROOT / "datasets" / "btb-smoke" / "btb-smoke" / "tests" / "test.sh"
 
@@ -47,7 +50,7 @@ class PrerequisiteError(SystemExit):
 def _fail(message: str) -> None:
     """Print an actionable error and exit."""
     print(f"\n{'=' * 60}", file=sys.stderr)
-    print(f"PREREQUISITE MISSING", file=sys.stderr)
+    print("PREREQUISITE MISSING", file=sys.stderr)
     print(f"{'=' * 60}", file=sys.stderr)
     print(message, file=sys.stderr)
     print(f"{'=' * 60}\n", file=sys.stderr)
@@ -108,6 +111,7 @@ def ensure_tool_data() -> None:
         return
 
     log.info("Shared tool data missing (%s), downloading...", ", ".join(missing))
+    ensure_hf_access()
     _run_hf_download()
 
     # Verify after download
@@ -120,28 +124,33 @@ def ensure_tool_data() -> None:
     log.info("Shared tool data downloaded successfully")
 
 
-def ensure_task_data() -> None:
-    """Ensure tasks.jsonl and task-data/ are populated.
+def ensure_task_data(data_dir: Path) -> None:
+    """Ensure tasks.jsonl and task-data/ are populated under data_dir.
 
-    Runs scripts/download_from_hf.py --skip-shared-tools which handles both:
-    1. Downloading tasks.jsonl from HuggingFace
-    2. Downloading per-task input files from HuggingFace
-
-    The script is idempotent — it skips files that already exist.
+    If both exist, returns immediately without touching HuggingFace. If either
+    is missing and data_dir is the HF default, downloads from HuggingFace. If
+    either is missing and data_dir is custom, fails with a clear error.
     """
-    uuid_re = re.compile(
-        r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
-        re.IGNORECASE,
-    )
-    json_ok = JSON_PATH.exists()
+    json_path = data_dir / "tasks.jsonl"
+    task_data_dir = data_dir / "task-data"
+
+    json_ok = json_path.exists()
     data_ok = (
-        DATA_DIR.is_dir()
-        and any(d.is_dir() and uuid_re.match(d.name) for d in DATA_DIR.iterdir())
+        task_data_dir.is_dir()
+        and any(d.is_dir() and _UUID_RE.match(d.name) for d in task_data_dir.iterdir())
     )
 
     if json_ok and data_ok:
-        log.debug("tasks.jsonl and task-data OK")
+        log.debug("tasks.jsonl and task-data OK (%s)", data_dir)
         return
+
+    if data_dir.resolve() != _DEFAULT_DATA_DIR:
+        missing = []
+        if not json_ok:
+            missing.append(f"tasks JSON not found: {json_path}")
+        if not data_ok:
+            missing.append(f"task-data missing or empty: {task_data_dir}")
+        _fail("\n".join(missing))
 
     reasons = []
     if not json_ok:
@@ -149,7 +158,7 @@ def ensure_task_data() -> None:
     if not data_ok:
         reasons.append("task-data missing or empty")
     log.info("%s — downloading from HuggingFace...", ", ".join(reasons))
-
+    ensure_hf_access()
     _run_hf_download("--skip-shared-tools")
     log.info("Task data download complete")
 
@@ -171,22 +180,22 @@ def ensure_test_sh_executable() -> None:
 # ---------------------------------------------------------------------------
 
 
-def ensure_all(*, need_task_data: bool = True) -> None:
+def ensure_all(*, data_dir: Path | None = None) -> None:
     """Run all prerequisite checks. Skips what's already done, fixes what it can.
 
     Args:
-        need_task_data: If False, skip tasks.jsonl and task-data checks
-                        (used by generate_smoke_test which doesn't need them).
+        data_dir: Root data directory containing tasks.jsonl and task-data/.
+                  When None, task data checks are skipped (smoke test).
+                  HF access is only required if a download is actually needed.
     """
     _setup_logging()
 
     log.info("Checking prerequisites...")
 
-    ensure_hf_access()
     ensure_tool_data()
 
-    if need_task_data:
-        ensure_task_data()
+    if data_dir is not None:
+        ensure_task_data(data_dir)
 
     ensure_test_sh_executable()
 

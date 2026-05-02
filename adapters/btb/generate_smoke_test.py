@@ -119,7 +119,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    ensure_all(need_task_data=False)
+    ensure_all()
 
     adapter = BTBAdapter(
         output_dir=args.output_dir,

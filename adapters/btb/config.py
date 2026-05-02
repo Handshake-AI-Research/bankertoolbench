@@ -12,8 +12,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 # Default paths (relative to REPO_ROOT)
-DEFAULT_JSON_PATH = Path("btb-data/tasks.jsonl")
-DEFAULT_TASK_DATA_DIR = Path("btb-data/task-data")
+DEFAULT_DATA_DIR = Path("btb-data")
 DEFAULT_SHARED_DIR = Path("shared")
 DEFAULT_OUTPUT_DIR = Path("datasets/btb")
 DEFAULT_SMOKE_OUTPUT_DIR = Path("datasets/btb-smoke")
