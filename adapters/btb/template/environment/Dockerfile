@@ -18,7 +18,7 @@ ENV MCP_STDIO_SERVERS=[{\"name\":\"mcp-server\",\"command\":\"/usr/bin/mcp-serve
 #   TODO(upstream): propose adding libgomp1 to Harbor's install-goose.sh.j2
 # - tmux: for Gandalf (OpenHands)
 RUN apt-get update && \
-    apt-get install -y bash curl git nodejs npm sudo bzip2 libxcb1 libgomp1 libreoffice tmux && \
+    apt-get install -y bash curl git nodejs npm sudo bzip2 libxcb1 libgomp1 libreoffice tmux unzip poppler-utils && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
