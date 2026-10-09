@@ -33,33 +33,11 @@ _REQUIRED_MSG = (
 
 
 def _data_path() -> Path:
+    # Tarballs ship the nested layout (sec_edgar/data/...); the data root is
+    # always the `data/` subdir.
     return Path(
         os.environ.get("SEC_EDGAR_DATA_PATH", "/opt/mcp-server/data/tools/sec_edgar")
-    )
-
-
-def _resolve_data_root(base: Path) -> Path:
-    """Use base if submissions/company-facts are there; else use base/data/ (nested layout)."""
-    if (base / "submissions").is_dir() or (base / "company-facts").is_dir():
-        return base
-    nested = base / "data"
-    if (nested / "submissions").is_dir() or (nested / "company-facts").is_dir():
-        return nested
-    return base
-
-
-def _find_cik_lookup(data_path: Path) -> Path | None:
-    """Return path to cik-lookup.json under data_path, or None."""
-    standard = data_path / "cik-lookup.json"
-    if standard.is_file():
-        return standard
-    try:
-        for p in data_path.rglob("cik-lookup.json"):
-            if p.is_file():
-                return p
-    except OSError:
-        pass
-    return None
+    ) / "data"
 
 
 def _with_workspace(
@@ -151,25 +129,15 @@ def _copy_to_workspace(
 
 
 def register(mcp, caller_uid):
-    base = _data_path()
-    if not base.is_dir():
+    data_path = _data_path()
+    if not data_path.is_dir():
         return
-    data_path = _resolve_data_root(base)
 
     @mcp.tool()
     def copy_cik_lookup(workspace_path: str) -> dict[str, Any]:
         """Get the cik-lookup.json as a file in the workspace_path (destination folder, specified as absolute path). Use this file to look up a company's CIK (Central Index Key) by its ticker or company name."""
-        cik_path = _find_cik_lookup(data_path)
-        if cik_path is None:
-            wp, err = _with_workspace(workspace_path, caller_uid)
-            if err:
-                return err
-            return {
-                "success": False,
-                "error": "cik-lookup.json not found under SEC EDGAR data path (searched data root and subdirs).",
-            }
         return _copy_to_workspace(
-            workspace_path, cik_path, "cik-lookup.json", caller_uid
+            workspace_path, data_path / "cik-lookup.json", "cik-lookup.json", caller_uid
         )
 
     @mcp.tool()
