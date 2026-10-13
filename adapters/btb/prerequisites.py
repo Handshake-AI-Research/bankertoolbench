@@ -19,9 +19,9 @@ from .config import (
     DEFAULT_DATA_DIR,
     DEFAULT_SHARED_DIR,
     REPO_ROOT,
-    REQUIRED_TOOLS,
     resolve_repo_path,
 )
+from .shared_tools import missing_tool_paths
 
 log = logging.getLogger("btb.prereq")
 
@@ -98,30 +98,26 @@ def _run_hf_download(*extra_args: str) -> None:
 
 
 def ensure_tool_data() -> None:
-    """Ensure shared MCP tool data (VDR, SEC EDGAR, logos) is downloaded.
-
-    Checks for shared/tools/ with a subdirectory per REQUIRED_TOOLS.
-    Runs scripts/download_from_hf.py if missing.
-    """
+    """Ensure shared MCP tool data is present, re-extracting tarballs if stale."""
     dataset_dir = SHARED_DIR / "tools"
-    missing = [t for t in REQUIRED_TOOLS if not (dataset_dir / t).is_dir()]
+    missing = missing_tool_paths(dataset_dir)
 
     if not missing:
         log.debug("Shared tool data OK (%s)", dataset_dir)
         return
 
-    log.info("Shared tool data missing (%s), downloading...", ", ".join(missing))
+    log.info("Shared tool data missing (%s), refreshing...", ", ".join(missing))
     ensure_hf_access()
     _run_hf_download()
 
-    # Verify after download
-    still_missing = [t for t in REQUIRED_TOOLS if not (dataset_dir / t).is_dir()]
+    still_missing = missing_tool_paths(dataset_dir)
     if still_missing:
         _fail(
-            f"Tool data download completed but still missing: {', '.join(still_missing)}\n"
-            f"Expected at: {dataset_dir}"
+            "Tool data download completed but still missing:\n  "
+            + "\n  ".join(still_missing)
+            + f"\nExpected under: {dataset_dir}"
         )
-    log.info("Shared tool data downloaded successfully")
+    log.info("Shared tool data downloaded successfully (fixed: %s)", ", ".join(missing))
 
 
 def ensure_task_data(data_dir: Path) -> None:

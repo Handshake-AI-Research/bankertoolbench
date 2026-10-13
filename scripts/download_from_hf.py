@@ -35,11 +35,12 @@ from adapters.btb.config import (  # noqa: E402
     REPO_ROOT,
     hf_dataset_revision,
 )
+from adapters.btb.shared_tools import tool_needs_refresh  # noqa: E402
 
 BTB_DATA_DIR = REPO_ROOT / DEFAULT_DATA_DIR
 SHARED_TOOLS_DIR = REPO_ROOT / DEFAULT_SHARED_DIR / "tools"
 
-TARBALL_TOOLS = ("sec_edgar", "logos", "vdr")  # downloaded as .tar.gz and extracted
+TARBALL_TOOLS = ("sec_edgar", "company_brand_assets", "market_data_platform")  # downloaded as .tar.gz and extracted
 
 logging.basicConfig(
     level=logging.INFO,
@@ -65,7 +66,11 @@ def download_task_data() -> None:
 
 
 def download_and_extract_shared_tools() -> None:
-    """Download shared-tools tarballs from HF and extract into shared tools dir."""
+    """Download shared-tools tarballs and extract into the shared tools dir.
+
+    Idempotent: per-tool, skipped when `tool_needs_refresh` is False. To force
+    a re-extract, delete the tool's directory under shared/tools/ and re-run.
+    """
     SHARED_TOOLS_DIR.mkdir(parents=True, exist_ok=True)
 
     revision = hf_dataset_revision()
@@ -73,8 +78,8 @@ def download_and_extract_shared_tools() -> None:
         tarball_name = f"{tool}.tar.gz"
         dest = SHARED_TOOLS_DIR / tool
 
-        if dest.is_dir() and any(dest.iterdir()):
-            log.info("%s already populated, skipping", dest)
+        if not tool_needs_refresh(SHARED_TOOLS_DIR, tool):
+            log.info("%s already complete, skipping", dest)
             continue
 
         log.info("Downloading shared-tools/%s ...", tarball_name)
@@ -98,7 +103,7 @@ def main() -> None:
     parser.add_argument(
         "--skip-shared-tools",
         action="store_true",
-        help="Skip downloading shared tool data (SEC EDGAR, logos, VDR)",
+        help="Skip downloading shared tool data (SEC EDGAR, Company Brand Assets, Market Data Platform)",
     )
     args = parser.parse_args()
 
