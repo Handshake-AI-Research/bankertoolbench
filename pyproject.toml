@@ -8,3 +8,15 @@ dependencies = [
     "pyyaml",
     "huggingface-hub",
 ]
+
+[project.optional-dependencies]
+reporting = ["numpy>=2,<3"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "scripts"}
+packages = ["btb"]
+py-modules = ["btb_scoring"]
